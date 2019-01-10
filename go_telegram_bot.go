@@ -1,4 +1,4 @@
-// package gotelegrambot
+package gotelegrambot
 
 // import (
 // 	"github.com/MaximShirokov/goTelegramBot/structures"

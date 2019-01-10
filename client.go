@@ -1,18 +1,19 @@
 package gotelegrambot
 
 import (
-	"bytes"
+	// "bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io/ioutil"
+	// "fmt"
+	// "io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+	"github.com/MaximShirokov/goTelegramBot/structures"
 )
 
 const (
-	APIURL = "https://api.telegram.org"
+	APIURL = "https://api.telegram.org/"
 )
 
 type (
@@ -24,6 +25,7 @@ type (
 )
 
 func New(botID string, token string) (*config, error) {
+	
 	var err error
 
 	if botID == "" {
@@ -37,7 +39,7 @@ func New(botID string, token string) (*config, error) {
 	conf := &config{
 		URL: APIURL,
 		BotID: botID,
-		Token: token
+		Token: token,
 	}
 	
 	_, err = url.Parse(APIURL)
@@ -49,13 +51,32 @@ func New(botID string, token string) (*config, error) {
 	return conf, nil
 }
 
-func (c *config) Post(url string, data string) (*http.Response, error) {
+func (c *config) Post(url string, data interface{}) (*http.Response, error) {
+	
 	req, err := http.NewRequest("POST", url, strings.NewReader(data))
+	
 	if err != nil {
 		return nil, err
 	}
+	
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	
 	client := &http.Client{}
+	
 	return client.Do(req)
+}
+
+func (c *config) GetResponse(resp *http.Response) (structures.MessageSendResponse, error) {
+	
+	result := structures.MessageSendResponse{}
+
+	dec := json.NewDecoder(resp.Body)
+	err := dec.Decode(&result)
+	
+	if err != nil {
+		return 0, err
+	}
+	
+	return result, nil
 }
