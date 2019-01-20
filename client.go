@@ -1,82 +1,97 @@
+// Copyright © 2019 Max Shirokov
+//
+// Use of this source code is governed by an MIT licese.
+// Details in the LICENSE file.
+
 package gotelegrambot
 
 import (
-	// "bytes"
+	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
-	// "fmt"
-	// "io/ioutil"
+	"fmt"
+	"io/ioutil"
 	"net/http"
-	"net/url"
-	"strings"
-	"github.com/MaximShirokov/goTelegramBot/structures"
+	"github.com/pkg/errors"
 )
 
-const (
-	APIURL = "https://api.telegram.org/"
-)
+const DEFAULT_BASEURL = "https://api.telegram.org/"
 
-type (
-	config struct {
-		URL string
-		BotID string
-		Token string
-	}
-)
-
-func New(botID string, token string) (*config, error) {
-	
-	var err error
-
-	if botID == "" {
-		return nil, errors.New("botID is empty")
-	}
-	
-	if token == "" {
-		return nil, errors.New("token is empty")
-	}
-	
-	conf := &config{
-		URL: APIURL,
-		BotID: botID,
-		Token: token,
-	}
-	
-	_, err = url.Parse(APIURL)
-	
-	if err != nil {
-		return nil, err
-	}
-	
-	return conf, nil
+type Client struct {
+	Client   *http.Client
+	Logger   logger
+	BaseURL  string
+	BotID    string
+	Token    string
+	testMode bool
+	ctx      context.Context
 }
 
-func (c *config) Post(url string, data interface{}) (*http.Response, error) {
+type logger interface {
+	Debugf(string, ...interface{})
+}
+
+func NewClient(botID, token string) *Client {
+	return &Client{
+		Client:   http.DefaultClient,
+		BaseURL:  DEFAULT_BASEURL,
+		BotID:    botID,
+		Token:    token,
+		testMode: false,
+		ctx:      context.Background(),
+	}
+}
+
+func (c *Client) Post(path string, requestParams RequestParams, target interface{}) error {
+	params := requestParams.ToURLValues()
 	
-	req, err := http.NewRequest("POST", url, strings.NewReader(data))
+	c.log("[telegram] POST %s?%s", path, params.Encode())
+
+	if c.BotID != "" {
+		params.Set("key", c.BotID)
+	}
+
+	if c.Token != "" {
+		params.Set("token", c.Token)
+	}
+
+	url := fmt.Sprintf("%s/%s", c.BaseURL, path)
+	urlWithParams := fmt.Sprintf("%s?%s", url, params.Encode())
+
+	req, err := http.NewRequest("POST", urlWithParams, nil)
 	
 	if err != nil {
-		return nil, err
+		return errors.Wrapf(err, "Invalid POST request %s", url)
 	}
 	
-	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	
-	client := &http.Client{}
-	
-	return client.Do(req)
-}
 
-func (c *config) GetResponse(resp *http.Response) (structures.MessageSendResponse, error) {
-	
-	result := structures.MessageSendResponse{}
-
-	dec := json.NewDecoder(resp.Body)
-	err := dec.Decode(&result)
+	resp, err := c.Client.Do(req)
 	
 	if err != nil {
-		return 0, err
+		return errors.Wrapf(err, "HTTP request failure on %s", url)
 	}
+
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		return errors.Wrapf(err, "HTTP Read error on response for %s", url)
+	}
+
+	decoder := json.NewDecoder(bytes.NewBuffer(b))
+	err = decoder.Decode(target)
 	
-	return result, nil
+	if err != nil {
+		return errors.Wrapf(err, "JSON decode failed on %s:\n%s", url, string(b))
+	}
+
+	return nil
+}
+
+func (c *Client) log(format string, args ...interface{}) {
+	if c.Logger != nil {
+		c.Logger.Debugf(format, args...)
+	}
 }

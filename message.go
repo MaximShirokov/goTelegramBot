@@ -1,25 +1,34 @@
+// Copyright © 2019 Max Shirokov
+//
+// Use of this source code is governed by an MIT licese.
+// Details in the LICENSE file.
+
 package gotelegrambot
 
-import (
-	"github.com/MaximShirokov/goTelegramBot/structures"
-)
+type Message struct {
+	client *Client
 
-func (c *config) SendMessage(msr MessageSendRequest) (int, error) {
-	
-	if msr.ChatID == "" {
-		return 0, errors.New("Chat ID is empty")
-	}
+	// Key metadata
+	MessageID int `json:"message_id"`
+	Text 	  string `json:"text"`
 
-	if msr.Text == "" {
-		return 0, errors.New("Text is empty")
-	}
+	// Chat
+	Chat *Chat
+}
 
-	url := c.URL + c.BotID + ":" + c.Token + "/sendMessage"
-	resp, err := c.Post(url, msr)
-	
-	if err != nil {
-		return 0, err
+func (c *Client) SendMessage(chat *Chat, message *Message, extraParams RequestParams) error {
+	path := "sendMessage"
+
+	args := RequestParams{
+		"chat_id": chat.ID,
+		"text":    message.Text,
 	}
 	
-	return c.GetResponseID(resp)
+	err := c.Post(path, args, &message)
+	
+	if err == nil {
+		message.client = c
+	}
+	
+	return err
 }
