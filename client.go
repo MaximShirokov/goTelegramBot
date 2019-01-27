@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const DEFAULT_BASEURL = "https://api.telegram.org/"
+const DEFAULT_BASEURL = "https://api.telegram.org"
 
 type Client struct {
 	Client   *http.Client
@@ -47,15 +47,15 @@ func (c *Client) Post(path string, requestParams RequestParams, target interface
 	
 	c.log("[telegram] POST %s?%s", path, params.Encode())
 
-	if c.BotID != "" {
-		params.Set("key", c.BotID)
+	if c.BotID == "" {
+		return errors.New("BotID is empty")
 	}
 
-	if c.Token != "" {
-		params.Set("token", c.Token)
+	if c.Token == "" {
+		return errors.New("Token is empty")
 	}
 
-	url := fmt.Sprintf("%s/%s", c.BaseURL, path)
+	url := fmt.Sprintf("%s/%s:%s/%s", c.BaseURL, c.BotID, c.Token, path)
 	urlWithParams := fmt.Sprintf("%s?%s", url, params.Encode())
 
 	req, err := http.NewRequest("POST", urlWithParams, nil)
@@ -65,6 +65,8 @@ func (c *Client) Post(path string, requestParams RequestParams, target interface
 	}
 	
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	fmt.Println(url)
 
 	resp, err := c.Client.Do(req)
 	
