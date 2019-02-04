@@ -19,12 +19,12 @@ type Message struct {
 func (c *Client) SendMessage(chat *Chat, message *Message, extraParams RequestParams) error {
 	path := "sendMessage"
 
-	args := RequestParams{
+	params := RequestParams{
 		"chat_id": chat.ID,
 		"text":    message.Text,
 	}
 	
-	err := c.Post(path, args, &message)
+	err := c.Post(path, params, &message)
 	
 	if err == nil {
 		message.client = c
